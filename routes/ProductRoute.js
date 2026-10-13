@@ -3,11 +3,16 @@ const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const uploadPath = path.join(__dirname, "../uploads");
-fs.mkdirSync(uploadPath, { recursive: true });
+const os = require("os");
+// Vercel's application directory is read-only. Uploads here are temporary.
+const uploadPath = process.env.VERCEL
+    ? path.join(os.tmpdir(), "react-admin-api-uploads")
+    : path.join(__dirname, "../uploads");
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, uploadPath);
+        fs.mkdir(uploadPath, { recursive: true }, (error) => {
+            cb(error, uploadPath);
+        });
     },
 
     filename: (req, file, cb) => {
