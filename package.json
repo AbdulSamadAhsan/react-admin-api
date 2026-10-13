@@ -7,14 +7,18 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
+    "dev": "nodemon server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.11.0",
     "cors": "^2.8.6",
     "dotenv": "^18.0.7",
     "express": "^5.3.0",
-    "mongoose": "^9.11.1"
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.11.1",
+    "multer": "^2.4.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
