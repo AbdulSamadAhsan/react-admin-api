@@ -3,6 +3,7 @@ require('dotenv').config({ path: [path.join(__dirname, '.env.local'), path.join(
 const express = require('express');
 const connectDb = require('./config/db');
 const productRoutes = require('./routes/ProductRoute');
+const adminRoutes = require('./routes/AdminRoute');
 const { uploadPath } = require('./middlewares/upload');
 const app = express();
 app.use(require('cors')({ origin: ['http://localhost:5173', 'http://localhost:3000', 'https://react-admin-panel-hazel.vercel.app'] }));
@@ -10,10 +11,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(uploadPath));
 app.get('/', (req, res) => res.json({ success: true, message: 'API is running' }));
-app.use('/api/products', async (req, res, next) => {
-    try { await connectDb(); next(); }
-    catch { res.status(503).json({ success: false, message: 'Database unavailable. Check MONGO_URI and database access.' }); }
-}, productRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/products', productRoutes);
 app.use((error, req, res, next) => {
     const uploadError = error.name === 'MulterError';
     const badRequest = error.status === 400;

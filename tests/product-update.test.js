@@ -1,3 +1,6 @@
+// Storage lifecycle tests isolate auth; auth.test.js exercises the real guards.
+const authPath = require.resolve('../middlewares/auth');
+require.cache[authPath] = { id: authPath, filename: authPath, loaded: true, exports: { authenticate: (req, res, next) => next(), authorize: () => (req, res, next) => next() } };
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a7ioAAAAASUVORK5CYII=', 'base64');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');

@@ -1,5 +1,7 @@
 # Product image storage
 
+Before deploying the admin authentication changes, configure `JWT_SECRET` and `ADMIN_REGISTRATION_KEY` and update the frontend to send bearer tokens. See `AUTHENTICATION.md` for setup and requests. All product API routes now require an active admin account.
+
 On Vercel (`VERCEL=1`), product create and update uploads are stored in a public Vercel Blob store. Locally, uploads remain in `uploads/`.
 
 Connect a public Blob store to the Vercel project and provide `BLOB_READ_WRITE_TOKEN` for that store in the deployment environment. Redeploy after configuring storage. Keep this token on the server, never in frontend code.
