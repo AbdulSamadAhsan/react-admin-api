@@ -1,10 +1,17 @@
-const mongoose=require('mongoose')
-const connectDb=async()=>{
-    try {
-        await mongoose.connect(process.env.MONGO_URI)
-console.log("db connected")
-    } catch (error) {
-        console.log(error)
+const mongoose = require('mongoose');
+let connectionPromise;
+const connectDb = () => {
+    if (!connectionPromise) {
+        connectionPromise = (async () => {
+            if (!process.env.MONGO_URI) throw new Error('MONGO_URI is required');
+            const database = decodeURIComponent(new URL(process.env.MONGO_URI).pathname.slice(1));
+            if (/[/\\. "$*<>:|?]/.test(database)) {
+                throw new Error('MONGO_URI must contain one valid database name, not multiple path segments');
+            }
+            await mongoose.connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 10000 });
+            console.log('Database connected');
+        })().catch((error) => { connectionPromise = undefined; throw error; });
     }
-}
-module.exports=connectDb
+    return connectionPromise;
+};
+module.exports = connectDb;
