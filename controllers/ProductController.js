@@ -4,7 +4,6 @@ const imageStorage = require('../services/ProductImageStorage');
 const getProduct =async(req,res)=>{
     try {
      const products = await Product.find();
-     console.log(products);
 
 
     return res.status(200).json({
@@ -29,10 +28,15 @@ const createProduct = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Image is required' });
         }
         const name = typeof data.name === 'string' ? data.name.trim() : '';
+        if (!name || name.length > 200 || data.price === undefined || String(data.price).trim() === '' || !Number.isFinite(Number(data.price)) || Number(data.price) < 0) {
+            await imageStorage.discardUpload(req.file);
+            return res.status(400).json({ success: false, message: 'Provide a name of at most 200 characters and a valid non-negative price' });
+        }
         const slug = data.slug || (name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'product') + '-' + crypto.randomBytes(6).toString('hex');
         const imageUrl = await imageStorage.storeUpload(req);
         const fields = ['description', 'price', 'oldPrice', 'discount', 'category', 'brand', 'style', 'color', 'stock', 'rating', 'featured', 'sales', 'active'];
         const values = Object.fromEntries(fields.filter(key => data[key] !== undefined).map(key => [key, data[key]]));
+        values.price = Number(data.price);
         for (const key of ['images', 'colors', 'sizes']) {
             if (data[key] !== undefined) values[key] = typeof data[key] === 'string' && data[key].trim().startsWith('[') ? JSON.parse(data[key]) : data[key];
         }

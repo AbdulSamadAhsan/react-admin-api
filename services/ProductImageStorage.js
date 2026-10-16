@@ -1,6 +1,7 @@
 const fs = require('fs/promises');
 const path = require('path');
 const blob = require('@vercel/blob');
+const images = require('./ImageStorage');
 const { uploadPath } = require('../middlewares/upload');
 
 async function removeImage(imageUrl) {
@@ -38,12 +39,16 @@ async function discardUpload(file) {
 
 async function storeUpload(req) {
     const file = req.file;
+    const buffer = await fs.readFile(file.path);
+    const { fileTypeFromBuffer } = await import('file-type');
+    const type = await fileTypeFromBuffer(buffer).catch(() => undefined);
+    if (!type || !['image/jpeg', 'image/png', 'image/webp'].includes(type.mime)) {
+        const error = new Error('Only JPEG, PNG, and WebP images are allowed');
+        error.name = 'ValidationError';
+        throw error;
+    }
     if (!process.env.VERCEL) return req.protocol + '://' + req.get('host') + '/uploads/' + file.filename;
-    const result = await blob.put(`products/${file.filename}`, await fs.readFile(file.path), {
-        access: 'public',
-        contentType: file.mimetype,
-        addRandomSuffix: true
-    });
+    const result = await images.upload(buffer, type);
     file.blobUrl = result.url;
     await fs.unlink(file.path).catch(error => {
         if (error.code !== 'ENOENT') console.error('Temporary upload cleanup failed:', error.name);

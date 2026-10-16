@@ -1,11 +1,11 @@
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true });
+require('dotenv').config({ path: [path.join(__dirname, '.env.local'), path.join(__dirname, '.env')], quiet: true });
 const express = require('express');
 const connectDb = require('./config/db');
 const productRoutes = require('./routes/ProductRoute');
 const { uploadPath } = require('./middlewares/upload');
 const app = express();
-app.use(require('cors')());
+app.use(require('cors')({ origin: ['http://localhost:5173', 'http://localhost:3000', 'https://react-admin-panel-hazel.vercel.app'] }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(uploadPath));

@@ -1,3 +1,4 @@
+const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a7ioAAAAASUVORK5CYII=', 'base64');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
@@ -15,8 +16,8 @@ test('deployed product Blob lifecycle', async (t) => {
     require.cache[blobPath] = { id: blobPath, filename: blobPath, loaded: true, exports: {
         put: async (name, bytes, options) => {
             events.push('upload');
-            assert.equal(name, 'products/new.png');
-            assert.equal(bytes.toString(), 'new image');
+            assert.match(name, /^products\/.+\.png$/);
+            assert.deepEqual(bytes, png);
             assert.equal(options.access, 'public');
             if (failUpload) throw new Error('Upload failed');
             return { url: newUrl };
@@ -35,7 +36,7 @@ test('deployed product Blob lifecycle', async (t) => {
     const res = () => ({ status(code) { this.code = code; return this; }, json(body) { this.body = body; return this; } });
     const reset = async () => {
         events = []; failSave = failUpload = failDelete = false;
-        await fs.writeFile(filePath, 'new image');
+        await fs.writeFile(filePath, png);
         Product.findById = async () => ({ image: oldUrl, async save() { events.push('save'); if (failSave) throw new Error('DB failed'); } });
         Product.findByIdAndDelete = async () => { events.push('delete-product'); if (failSave) throw new Error('DB failed'); return { image: oldUrl }; };
         Product.create = async data => { events.push('create'); if (failSave) throw new Error('DB failed'); return data; };

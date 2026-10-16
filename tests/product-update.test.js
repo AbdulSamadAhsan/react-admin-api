@@ -1,3 +1,4 @@
+const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a7ioAAAAASUVORK5CYII=', 'base64');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
@@ -37,7 +38,7 @@ test('product update and upload lifecycle', async (t) => {
     const update = async (fields, image = false, id = '507f1f77bcf86cd799439011') => {
         const form = new FormData();
         for (const [key, value] of Object.entries(fields)) form.append(key, value);
-        if (image) form.append('image', new Blob(['replacement'], { type: 'image/png' }), 'new.png');
+        if (image) form.append('image', new Blob([png], { type: 'image/png' }), 'new.png');
         return fetch(`${base}/api/products/${id}`, { method: 'PUT', body: form });
     };
     try {
@@ -50,7 +51,7 @@ test('product update and upload lifecycle', async (t) => {
             assert.equal(body.product.price, 25);
             assert.deepEqual(body.product.colors, ['red']);
             await assert.rejects(fs.access(oldPath), { code: 'ENOENT' });
-            assert.equal(await fs.readFile(path.join(uploadPath, new URL(body.imageUrl).pathname.split('/').pop()), 'utf8'), 'replacement');
+            assert.deepEqual(await fs.readFile(path.join(uploadPath, new URL(body.imageUrl).pathname.split('/').pop())), png);
         });
         await t.test('keeps existing image when no upload is supplied', async () => {
             const oldPath = await makeProduct();
