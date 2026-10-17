@@ -2,6 +2,8 @@ const express = require('express');
 const upload = require('../middlewares/upload');
 const { getProduct, createProduct, updateProduct, deleteProduct } = require('../controllers/ProductController');
 const router = express.Router();
+const { authenticate, authorize } = require('../middlewares/auth');
+router.use(authenticate, authorize('admin'));
 router.get('/', getProduct);
 router.post('/', upload.single('image'), createProduct);
 router.put('/:id', upload.single('image'), updateProduct);

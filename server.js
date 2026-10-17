@@ -14,12 +14,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(uploadPath));
 app.get('/', (req, res) => res.json({ success: true, message: 'API is running' }));
 app.use('/api/admin', adminRoutes);
-// Database access is independent of authentication for the dashboard routes.
-app.use(['/api/products', '/api/orders', '/api/customers', '/api/settings'], async (req, res, next) => {
-    res.set('Cache-Control', 'no-store');
-    try { await connectDb(); next(); }
-    catch { res.status(503).json({ success: false, message: 'Database temporarily unavailable' }); }
-});
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/customers', require('./routes/CustomerRoute'));

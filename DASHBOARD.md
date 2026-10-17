@@ -1,3 +1,5 @@
+> Real admin login is now enabled. Dashboard API routes require a valid bearer token for an active admin account. Passwords are saved only in the local, Git-ignored README.credentials.md. Historical demo/no-auth notes below are superseded.
+
 # Ecommerce dashboard API integration
 
 The existing `models/`, `controllers/`, `routes/`, and `services/` structure and product endpoints are retained. This integration is for `F:\ecommerce-admin-dashboard`.

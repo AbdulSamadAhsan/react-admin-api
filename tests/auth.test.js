@@ -13,7 +13,7 @@ const { Product } = require('../models/ProductModel');
 const service = require('../services/AdminService');
 const app = require('../server');
 
-test('existing admin auth and public dashboard routes', async t => {
+test('admin authentication and protected dashboard routes', async t => {
     const accounts = new Map();
     const attempts = new Map();
     const id = '507f1f77bcf86cd799439011';
@@ -47,9 +47,9 @@ test('existing admin auth and public dashboard routes', async t => {
     };
     const registration = { name: 'Admin', email: 'ADMIN@example.com', password, role: 'viewer', active: false };
     try {
-        await t.test('dashboard products are accessible without auth; admin account remains protected', async () => {
-            assert.equal((await request('/api/products')).status, 200);
-            assert.equal(productCalls, 1);
+        await t.test('dashboard and account routes require authentication', async () => {
+            for (const resource of ['products', 'orders', 'customers', 'settings']) assert.equal((await request('/api/' + resource)).status, 401);
+            assert.equal(productCalls, 0);
             assert.equal((await request('/api/admin/me')).status, 401);
         });
         await t.test('registration requires setup key and valid password', async () => {
@@ -92,7 +92,7 @@ test('existing admin auth and public dashboard routes', async t => {
         await t.test('valid admin can list products and inspect account', async () => {
             const headers = { Authorization: `Bearer ${token}` };
             assert.equal((await request('/api/products', 'GET', undefined, headers)).status, 200);
-            assert.equal(productCalls, 2);
+            assert.equal(productCalls, 1);
             const me = await request('/api/admin/me', 'GET', undefined, headers);
             assert.equal(me.status, 200);
             assert.equal(me.body.admin.email, 'admin@example.com');

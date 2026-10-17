@@ -1,10 +1,13 @@
+// Contract tests isolate access control; auth.test.js checks the real guards.
+const authPath = require.resolve('../middlewares/auth');
+require.cache[authPath] = { id: authPath, filename: authPath, loaded: true, exports: { authenticate: (req, res, next) => next(), authorize: () => (req, res, next) => next() } };
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const express = require('express');
 const { Order } = require('../models/OrderModel');
 const { StoreSettings } = require('../models/StoreSettingsModel');
 
-test('dashboard routes work without authentication and constrain order writes', async t => {
+test('dashboard contracts constrain order writes', async t => {
     const app = express();
     app.use(express.json());
     app.use('/api/orders', require('../routes/OrderRoute'));
