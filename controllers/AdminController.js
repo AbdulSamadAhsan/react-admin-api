@@ -48,7 +48,7 @@ async function loginAdmin(req, res) {
             res.set('Retry-After', '900');
             return res.status(429).json({ success: false, message: 'Too many login attempts. Try again later' });
         }
-        const admin = await Admin.findOne({ email }).select('+password');
+        const admin = await Admin.findOne({ email }).select('+password +sessionVersion');
         const matches = await bcrypt.compare(password, admin?.password || dummyHash);
         if (!admin || !matches || !admin.active || admin.role !== 'admin') {
             return res.status(401).json({ success: false, message: 'Invalid email or password' });
@@ -64,4 +64,36 @@ const getAdmin = (req, res) => {
     return res.status(200).json({ success: true, admin: service.publicAdmin(req.admin) });
 };
 
-module.exports = { registerAdmin, loginAdmin, getAdmin };
+async function updateAdmin(req, res) {
+    res.set('Cache-Control', 'no-store');
+    const body = req.body;
+    if (!body || Array.isArray(body) || Object.keys(body).some(key => !['email', 'currentPassword', 'newPassword'].includes(key)) || typeof body.currentPassword !== 'string' || !body.currentPassword || Buffer.byteLength(body.currentPassword) > 72 || (body.email === undefined && body.newPassword === undefined)) {
+        return res.status(400).json({ success: false, message: 'Provide your current password and a new email or password' });
+    }
+    const email = body.email === undefined ? undefined : emailValue(body.email);
+    if ((email !== undefined && !validEmail(email)) || (body.newPassword !== undefined && !validPassword(body.newPassword))) {
+        return res.status(400).json({ success: false, message: 'Use a valid email and a new password of at least 15 characters (maximum 72 UTF-8 bytes)' });
+    }
+    try {
+        if (!(await service.consumeAttempt('account-update', String(req.admin._id), 10))) {
+            res.set('Retry-After', '900');
+            return res.status(429).json({ success: false, message: 'Too many attempts. Try again later' });
+        }
+        const admin = await Admin.findById(req.admin._id).select('+password +sessionVersion');
+        if (!admin || !await bcrypt.compare(body.currentPassword, admin.password)) return res.status(403).json({ success: false, message: 'Current password is incorrect' });
+        if (body.newPassword !== undefined && await bcrypt.compare(body.newPassword, admin.password)) return res.status(400).json({ success: false, message: 'Choose a different new password' });
+        if (body.newPassword === undefined && email === admin.email) return res.status(400).json({ success: false, message: 'Enter a different email or a new password' });
+        const changes = {};
+        if (email !== undefined) changes.email = email;
+        if (body.newPassword !== undefined) changes.password = await bcrypt.hash(body.newPassword, 12);
+        const version = admin.sessionVersion || 0;
+        const versionFilter = version === 0 ? { $or: [{ sessionVersion: 0 }, { sessionVersion: { $exists: false } }] } : { sessionVersion: version };
+        const updated = await Admin.findOneAndUpdate({ _id: admin._id, password: admin.password, ...versionFilter }, { $set: changes, $inc: { sessionVersion: 1 } }, { new: true, runValidators: true });
+        if (!updated) return res.status(409).json({ success: false, message: 'Account changed in another session. Sign in again' });
+        return res.json({ success: true, message: 'Account updated. Sign in with your updated credentials', admin: service.publicAdmin(updated) });
+    } catch (error) {
+        if (error.code === 11000) return res.status(409).json({ success: false, message: 'Email is already registered' });
+        return res.status(503).json({ success: false, message: 'Account update temporarily unavailable' });
+    }
+}
+module.exports = { registerAdmin, loginAdmin, getAdmin, updateAdmin };

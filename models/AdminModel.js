@@ -5,7 +5,8 @@ const adminSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true, lowercase: true, trim: true, maxlength: 254 },
     password: { type: String, required: true, select: false },
     role: { type: String, enum: ['admin', 'viewer'], default: 'admin' },
-    active: { type: Boolean, default: true }
+    active: { type: Boolean, default: true },
+    sessionVersion: { type: Number, default: 0, select: false }
 }, { timestamps: true });
 
 adminSchema.set('toJSON', { transform: (doc, result) => {

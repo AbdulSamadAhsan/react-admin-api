@@ -17,8 +17,9 @@ async function authenticate(req, res, next) {
     }
     try {
         await connectDb();
-        const admin = await Admin.findById(claims.sub);
+        const admin = await Admin.findById(claims.sub).select("+sessionVersion");
         if (!admin || !admin.active) return res.status(401).json({ success: false, message: 'Account unavailable' });
+        if ((claims.v || 0) !== (admin.sessionVersion || 0)) return res.status(401).json({ success: false, message: 'Account credentials changed. Sign in again' });
         req.admin = admin;
         next();
     } catch {

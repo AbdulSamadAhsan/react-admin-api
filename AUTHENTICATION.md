@@ -70,3 +70,9 @@ The frontend must implement login and send the bearer token on product requests 
 Run `npm test`. The tests use real password hashing, JWT signing/verification, and HTTP requests with mocked database calls. Storage lifecycle tests isolate authentication; `tests/auth.test.js` tests the real guards. No live admin accounts or production products are created by these tests.
 
 Security references: [OWASP password storage](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html), [OWASP authorization](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html).
+
+## Updating an admin account
+
+In Settings, the Admin account form can update the signed-in admin's email and/or password. A current password is required. New passwords must be at least 15 characters and at most 72 UTF-8 bytes; confirmation is checked in the browser. Leaving the new password blank preserves it. The API rejects duplicate emails and all fields other than email, currentPassword, and newPassword.
+
+`PATCH /api/admin/me` requires an active admin bearer token. Successful updates atomically increment a private session version, invalidating previously issued tokens on all devices, and return to login. Sign in again with the updated credentials. Update your private local credentials notes yourself after making a change; the application never writes passwords to files.

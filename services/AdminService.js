@@ -11,7 +11,7 @@ function jwtSecret() {
 }
 
 function issueToken(admin) {
-    return jwt.sign({}, jwtSecret(), {
+    return jwt.sign({ v: admin.sessionVersion || 0 }, jwtSecret(), {
         algorithm: 'HS256', subject: String(admin._id), issuer, audience, expiresIn: '1h'
     });
 }

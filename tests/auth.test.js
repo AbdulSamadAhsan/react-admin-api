@@ -28,10 +28,10 @@ test('admin authentication and protected dashboard routes', async t => {
         return admin;
     };
     Admin.findOne = ({ email }) => ({ select: async () => accounts.get(email) });
-    Admin.findById = async value => {
+    Admin.findById = value => ({ select: async () => {
         if (forcedDbFailure) throw new Error('DB offline');
         return [...accounts.values()].find(account => account._id === value);
-    };
+    } });
     AuthAttempt.findOneAndUpdate = async ({ _id }) => {
         const count = (attempts.get(_id) || 0) + 1;
         attempts.set(_id, count);
