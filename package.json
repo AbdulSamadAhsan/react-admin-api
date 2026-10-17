@@ -8,7 +8,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon server.js",
-    "test": "node --test --test-concurrency=1 test/*.test.js tests/*.test.js"
+    "test": "node --test --test-concurrency=1 test/*.test.js tests/*.test.js",
+    "start": "node server.js"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.2",

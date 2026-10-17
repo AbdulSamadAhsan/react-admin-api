@@ -1,3 +1,5 @@
+> Current dashboard integration: product, order, customer, and settings routes are open without authentication or authorization. The admin subsystem is retained separately. See `DASHBOARD.md`.
+
 # Admin API
 
 The API follows the existing model/controller/route structure:

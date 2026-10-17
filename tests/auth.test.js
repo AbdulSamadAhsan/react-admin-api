@@ -13,7 +13,7 @@ const { Product } = require('../models/ProductModel');
 const service = require('../services/AdminService');
 const app = require('../server');
 
-test('admin auth and product authorization', async t => {
+test('existing admin auth and public dashboard routes', async t => {
     const accounts = new Map();
     const attempts = new Map();
     const id = '507f1f77bcf86cd799439011';
@@ -47,11 +47,10 @@ test('admin auth and product authorization', async t => {
     };
     const registration = { name: 'Admin', email: 'ADMIN@example.com', password, role: 'viewer', active: false };
     try {
-        await t.test('all product routes require auth before executing handlers', async () => {
-            for (const [route, method] of [['/api/products','GET'], ['/api/products','POST'], [`/api/products/${id}`,'PUT'], [`/api/products/${id}`,'DELETE']]) {
-                assert.equal((await request(route, method)).status, 401);
-            }
-            assert.equal(productCalls, 0);
+        await t.test('dashboard products are accessible without auth; admin account remains protected', async () => {
+            assert.equal((await request('/api/products')).status, 200);
+            assert.equal(productCalls, 1);
+            assert.equal((await request('/api/admin/me')).status, 401);
         });
         await t.test('registration requires setup key and valid password', async () => {
             assert.equal((await request('/api/admin/register', 'POST', registration)).status, 403);
@@ -93,7 +92,7 @@ test('admin auth and product authorization', async t => {
         await t.test('valid admin can list products and inspect account', async () => {
             const headers = { Authorization: `Bearer ${token}` };
             assert.equal((await request('/api/products', 'GET', undefined, headers)).status, 200);
-            assert.equal(productCalls, 1);
+            assert.equal(productCalls, 2);
             const me = await request('/api/admin/me', 'GET', undefined, headers);
             assert.equal(me.status, 200);
             assert.equal(me.body.admin.email, 'admin@example.com');
@@ -107,26 +106,26 @@ test('admin auth and product authorization', async t => {
                 jwt.sign({}, process.env.JWT_SECRET, { ...options, audience: 'another-app' }),
                 jwt.sign({}, process.env.JWT_SECRET, { ...options, algorithm: 'HS384' })
             ];
-            for (const badToken of badTokens) assert.equal((await request('/api/products', 'GET', undefined, { Authorization: `Bearer ${badToken}` })).status, 401);
+            for (const badToken of badTokens) assert.equal((await request('/api/admin/me', 'GET', undefined, { Authorization: `Bearer ${badToken}` })).status, 401);
         });
         await t.test('current account role and status override previously issued token', async () => {
             const account = accounts.get('admin@example.com');
             account.role = 'viewer';
-            assert.equal((await request('/api/products', 'GET', undefined, { Authorization: `Bearer ${token}` })).status, 403);
+            assert.equal((await request('/api/admin/me', 'GET', undefined, { Authorization: `Bearer ${token}` })).status, 403);
             account.role = 'admin'; account.active = false;
-            assert.equal((await request('/api/products', 'GET', undefined, { Authorization: `Bearer ${token}` })).status, 401);
+            assert.equal((await request('/api/admin/me', 'GET', undefined, { Authorization: `Bearer ${token}` })).status, 401);
             account.active = true;
             accounts.delete(account.email);
-            assert.equal((await request('/api/products', 'GET', undefined, { Authorization: `Bearer ${token}` })).status, 401);
+            assert.equal((await request('/api/admin/me', 'GET', undefined, { Authorization: `Bearer ${token}` })).status, 401);
             accounts.set(account.email, account);
         });
         await t.test('database failure and missing signing secret fail closed', async () => {
             forcedDbFailure = true;
-            assert.equal((await request('/api/products', 'GET', undefined, { Authorization: `Bearer ${token}` })).status, 503);
+            assert.equal((await request('/api/admin/me', 'GET', undefined, { Authorization: `Bearer ${token}` })).status, 503);
             forcedDbFailure = false;
             const secret = process.env.JWT_SECRET;
             delete process.env.JWT_SECRET;
-            assert.equal((await request('/api/products', 'GET', undefined, { Authorization: `Bearer ${token}` })).status, 503);
+            assert.equal((await request('/api/admin/me', 'GET', undefined, { Authorization: `Bearer ${token}` })).status, 503);
             process.env.JWT_SECRET = secret;
         });
         await t.test('login attempts are limited across requests', async () => {

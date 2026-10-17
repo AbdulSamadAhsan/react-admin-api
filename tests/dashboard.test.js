@@ -1,0 +1,75 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const express = require('express');
+const { Order } = require('../models/OrderModel');
+const { StoreSettings } = require('../models/StoreSettingsModel');
+
+test('dashboard routes work without authentication and constrain order writes', async t => {
+    const app = express();
+    app.use(express.json());
+    app.use('/api/orders', require('../routes/OrderRoute'));
+    app.use('/api/customers', require('../routes/CustomerRoute'));
+    app.use('/api/settings', require('../routes/SettingsRoute'));
+    const id = '507f1f77bcf86cd799439011';
+    const order = { _id: id, orderNumber: 'ORD-1047', customer: { name: 'Buyer', email: 'buyer@example.com' }, items: [{ name: 'Bag', quantity: 2, price: 89 }], total: 178, currency: 'USD', status: 'processing', createdAt: new Date('2026-10-14') };
+    const originals = { find: Order.find, count: Order.countDocuments, update: Order.findByIdAndUpdate, byId: Order.findById, settingsFind: StoreSettings.findOne, settingsUpdate: StoreSettings.findOneAndUpdate };
+    let latestUpdate;
+    Order.find = () => ({ sort() { return this; }, skip() { return this; }, limit() { this.paginated = true; return this; }, lean: async function () { return this.paginated ? [order] : [order, { ...order, status: 'cancelled', createdAt: new Date('2026-09-01') }]; } });
+    Order.countDocuments = async () => 1;
+    Order.findById = () => ({ lean: async () => order });
+    Order.findByIdAndUpdate = (received, update, options) => ({ lean: async () => {
+        assert.equal(received, id);
+        assert.equal(options.runValidators, true);
+        latestUpdate = update;
+        if (!['pending', 'processing', 'shipped', 'delivered', 'cancelled'].includes(update.$set.status)) throw Object.assign(new Error(), { name: 'ValidationError' });
+        return { ...order, ...update.$set };
+    } });
+    let storedSettings;
+    StoreSettings.findOne = async () => storedSettings;
+    StoreSettings.findOneAndUpdate = async (filter, update, options) => { assert.equal(options.upsert, true); storedSettings = update.$set; return storedSettings; };
+    const server = app.listen(0, '127.0.0.1');
+    await new Promise(resolve => server.once('listening', resolve));
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const request = (route, data) => fetch(base + route, data ? { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) } : {});
+    try {
+        await t.test('lists paginated orders and item snapshots', async () => {
+            const response = await request('/api/orders?limit=100');
+            assert.equal(response.status, 200);
+            const body = await response.json();
+            assert.equal(body.orders[0].items[0].quantity, 2);
+            assert.equal(body.pagination.total, 1);
+            assert.equal((await request('/api/orders?limit=101')).status, 400);
+            assert.equal((await request('/api/orders?page=0')).status, 400);
+            assert.equal((await request(`/api/orders/${id}`)).status, 200);
+            assert.equal((await request('/api/orders/invalid')).status, 400);
+        });
+        await t.test('updates status only and rejects other fields and invalid statuses', async () => {
+            const response = await request(`/api/orders/${id}`, { status: 'shipped' });
+            assert.equal(response.status, 200);
+            const saved = (await response.json()).order;
+            assert.equal(saved.status, 'shipped');
+            assert.equal(saved.total, 178);
+            assert.deepEqual(latestUpdate, { $set: { status: 'shipped' } });
+            for (const data of [{ total: 1 }, { status: 'pending', customer: {} }, { trackingNumber: 'track' }, {}, { status: 'unknown' }]) assert.equal((await request(`/api/orders/${id}`, data)).status, 400);
+        });
+        await t.test('groups customers by email and excludes cancelled spending', async () => {
+            const response = await request('/api/customers');
+            assert.equal(response.status, 200);
+            const [customer] = (await response.json()).customers;
+            assert.equal(customer.orders, 2);
+            assert.deepEqual(customer.totalsByCurrency, { USD: 178 });
+            assert.equal(customer.memberSince, '2026-09-01T00:00:00.000Z');
+        });
+        await t.test('loads defaults and persists validated settings', async () => {
+            assert.equal((await (await request('/api/settings')).json()).settings.storeName, 'Studio Store');
+            assert.equal((await request('/api/settings', { storeName: ' Saved store ', contactEmail: 'owner@example.com', currency: 'USD' })).status, 200);
+            assert.equal((await (await request('/api/settings')).json()).settings.storeName, 'Saved store');
+            for (const data of [{}, { storeName: ' ', contactEmail: 'invalid', currency: 'USD' }, { storeName: 'Store', contactEmail: 'valid@example.com', currency: 'EUR' }]) assert.equal((await request('/api/settings', data)).status, 400);
+        });
+    } finally {
+        Object.assign(Order, { find: originals.find, countDocuments: originals.count, findByIdAndUpdate: originals.update, findById: originals.byId });
+        Object.assign(StoreSettings, { findOne: originals.settingsFind, findOneAndUpdate: originals.settingsUpdate });
+        server.closeAllConnections();
+        await new Promise(resolve => server.close(resolve));
+    }
+});

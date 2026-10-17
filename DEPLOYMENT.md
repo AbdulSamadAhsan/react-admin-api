@@ -1,3 +1,5 @@
+> Current dashboard integration: product, order, customer, and settings routes are open without authentication or authorization. The admin subsystem is retained separately. See `DASHBOARD.md`.
+
 # Product image storage
 
 Before deploying the admin authentication changes, configure `JWT_SECRET` and `ADMIN_REGISTRATION_KEY` and update the frontend to send bearer tokens. See `AUTHENTICATION.md` for setup and requests. All product API routes now require an active admin account.
