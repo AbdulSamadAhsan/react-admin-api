@@ -48,6 +48,8 @@ test('admin authentication and protected dashboard routes', async t => {
     const registration = { name: 'Admin', email: 'ADMIN@example.com', password, role: 'viewer', active: false };
     try {
         await t.test('dashboard and account routes require authentication', async () => {
+            for (const method of ['GET', 'POST', 'PUT', 'DELETE']) assert.equal((await request('/api/coupons' + (['PUT', 'DELETE'].includes(method) ? '/aaaaaaaaaaaaaaaaaaaaaaaa' : ''), method)).status, 401);
+            assert.equal((await request('/api/products/aaaaaaaaaaaaaaaaaaaaaaaa/reviews')).status, 401);
             for (const resource of ['products', 'orders', 'customers', 'settings']) assert.equal((await request('/api/' + resource)).status, 401);
             assert.equal(productCalls, 0);
             assert.equal((await request('/api/admin/me')).status, 401);

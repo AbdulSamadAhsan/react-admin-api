@@ -18,6 +18,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/customers', require('./routes/CustomerRoute'));
 app.use('/api/settings', require('./routes/SettingsRoute'));
+app.use('/api/coupons', require('./routes/CouponRoute'));
 app.use((error, req, res, next) => {
     const uploadError = error.name === 'MulterError';
     const badRequest = error.status === 400;
