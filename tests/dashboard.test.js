@@ -15,14 +15,15 @@ test('dashboard contracts constrain order writes', async t => {
     app.use('/api/settings', require('../routes/SettingsRoute'));
     const id = '507f1f77bcf86cd799439011';
     const order = { _id: id, orderNumber: 'ORD-1047', customer: { name: 'Buyer', email: 'buyer@example.com' }, items: [{ name: 'Bag', quantity: 2, price: 89 }], total: 178, currency: 'USD', status: 'processing', createdAt: new Date('2026-10-14') };
-    const originals = { find: Order.find, count: Order.countDocuments, update: Order.findByIdAndUpdate, byId: Order.findById, settingsFind: StoreSettings.findOne, settingsUpdate: StoreSettings.findOneAndUpdate };
+    const originals = { find: Order.find, count: Order.countDocuments, update: Order.findOneAndUpdate, byId: Order.findById, settingsFind: StoreSettings.findOne, settingsUpdate: StoreSettings.findOneAndUpdate };
     let latestUpdate;
     Order.find = () => ({ sort() { return this; }, skip() { return this; }, limit() { this.paginated = true; return this; }, lean: async function () { return this.paginated ? [order] : [order, { ...order, status: 'cancelled', createdAt: new Date('2026-09-01') }]; } });
     Order.countDocuments = async () => 1;
     Order.findById = () => ({ lean: async () => order });
-    Order.findByIdAndUpdate = (received, update, options) => ({ lean: async () => {
-        assert.equal(received, id);
+    Order.findOneAndUpdate = (received, update, options) => ({ lean: async () => {
+        assert.deepEqual(received, { _id: id, status: { $nin: ['delivered', 'completed', 'cancelled'] } });
         assert.equal(options.runValidators, true);
+        if (['delivered', 'completed', 'cancelled'].includes(order.status)) return null;
         latestUpdate = update;
         if (!['pending', 'processing', 'shipped', 'delivered', 'cancelled'].includes(update.$set.status)) throw Object.assign(new Error(), { name: 'ValidationError' });
         return { ...order, ...update.$set };
@@ -55,6 +56,16 @@ test('dashboard contracts constrain order writes', async t => {
             assert.deepEqual(latestUpdate, { $set: { status: 'shipped' } });
             for (const data of [{ total: 1 }, { status: 'pending', customer: {} }, { trackingNumber: 'track' }, {}, { status: 'unknown' }]) assert.equal((await request(`/api/orders/${id}`, data)).status, 400);
         });
+        await t.test('cancelled orders cannot be reopened', async () => {
+            for (const terminal of ['delivered', 'completed', 'cancelled']) {
+            order.status = terminal;
+            try {
+                const response = await request(`/api/orders/${id}`, { status: 'processing' });
+                assert.equal(response.status, 409);
+                assert.equal(order.status, terminal);
+            } finally { order.status = 'processing'; }
+            }
+        });
         await t.test('groups customers by email and excludes cancelled spending', async () => {
             const response = await request('/api/customers');
             assert.equal(response.status, 200);
@@ -70,7 +81,7 @@ test('dashboard contracts constrain order writes', async t => {
             for (const data of [{}, { storeName: ' ', contactEmail: 'invalid', currency: 'USD' }, { storeName: 'Store', contactEmail: 'valid@example.com', currency: 'EUR' }]) assert.equal((await request('/api/settings', data)).status, 400);
         });
     } finally {
-        Object.assign(Order, { find: originals.find, countDocuments: originals.count, findByIdAndUpdate: originals.update, findById: originals.byId });
+        Object.assign(Order, { find: originals.find, countDocuments: originals.count, findOneAndUpdate: originals.update, findById: originals.byId });
         Object.assign(StoreSettings, { findOne: originals.settingsFind, findOneAndUpdate: originals.settingsUpdate });
         server.closeAllConnections();
         await new Promise(resolve => server.close(resolve));

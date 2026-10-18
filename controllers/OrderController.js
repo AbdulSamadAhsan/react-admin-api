@@ -1,5 +1,5 @@
 const { Order } = require('../models/OrderModel');
-const { normalizeOrder } = require('../services/OrderService');
+const { normalizeOrder, cancelOrder } = require('../services/OrderService');
 
 const getOrder = async (req, res) => {
     const page = req.query.page === undefined ? 1 : Number(req.query.page);
@@ -26,13 +26,20 @@ const updateOrder = async (req, res) => {
     if (!data || typeof data !== 'object' || Array.isArray(data) || !Object.keys(data).length || Object.keys(data).some(key => !allowed.includes(key) || typeof data[key] !== 'string')) {
         return res.status(400).json({ success: false, message: 'Provide only status as a string' });
     }
+    if (data.status === 'completed') data.status = 'delivered';
     try {
-        const order = await Order.findByIdAndUpdate(id, { $set: data }, { new: true, runValidators: true }).lean();
-        if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+        const order = data.status === 'cancelled'
+            ? await cancelOrder(id)
+            : await Order.findOneAndUpdate({ _id: id, status: { $nin: ['delivered', 'completed', 'cancelled'] } }, { $set: data }, { new: true, runValidators: true }).lean();
+        if (!order) {
+            const existing = await Order.findById(id).lean();
+            if (['delivered', 'completed', 'cancelled'].includes(existing?.status)) return res.status(409).json({ success: false, message: 'Delivered, completed, and cancelled orders cannot change status.' });
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
         return res.status(200).json({ success: true, message: 'Order updated successfully', data: normalizeOrder(order), order: normalizeOrder(order) });
     } catch (error) {
         const invalid = error.name === 'ValidationError' || error.name === 'CastError';
-        return res.status(invalid ? 400 : 500).json({ success: false, message: invalid ? 'Invalid order fields' : 'Failed to update order' });
+        return res.status(error.status === 409 ? 409 : invalid ? 400 : 500).json({ success: false, message: error.status === 409 ? error.message : invalid ? 'Invalid order fields' : 'Failed to update order' });
     }
 };
 
