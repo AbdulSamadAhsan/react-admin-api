@@ -1,6 +1,13 @@
 const {Product} = require("../models/ProductModel")
 const crypto = require('crypto');
 const imageStorage = require('../services/ProductImageStorage');
+const uploadedFiles = req => [req.file, ...(req.files?.galleryImages || [])].filter(Boolean);
+const discardUploads = req => Promise.all(uploadedFiles(req).map(file => imageStorage.discardUpload(file)));
+const storeGallery = async req => {
+    const urls = [];
+    for (const file of req.files?.galleryImages || []) urls.push(await imageStorage.storeUpload({ file, protocol: req.protocol, get: name => req.get(name) }));
+    return urls;
+};
 const getProduct =async(req,res)=>{
     try {
      const products = await Product.find();
@@ -25,11 +32,12 @@ const createProduct = async (req, res) => {
     try {
         const data = req.body || {};
         if (!req.file) {
+            await discardUploads(req);
             return res.status(400).json({ success: false, message: 'Image is required' });
         }
         const name = typeof data.name === 'string' ? data.name.trim() : '';
         if (!name || name.length > 200 || data.price === undefined || String(data.price).trim() === '' || !Number.isFinite(Number(data.price)) || Number(data.price) < 0) {
-            await imageStorage.discardUpload(req.file);
+            await discardUploads(req);
             return res.status(400).json({ success: false, message: 'Provide a name of at most 200 characters and a valid non-negative price' });
         }
         const slug = data.slug || (name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'product') + '-' + crypto.randomBytes(6).toString('hex');
@@ -40,10 +48,12 @@ const createProduct = async (req, res) => {
         for (const key of ['images', 'colors', 'sizes']) {
             if (data[key] !== undefined) values[key] = typeof data[key] === 'string' && data[key].trim().startsWith('[') ? JSON.parse(data[key]) : data[key];
         }
+        const gallery = await storeGallery(req);
+        if (gallery.length) values.images = [...(values.images || []), ...gallery];
         const product = await Product.create({ ...values, name, slug, image: imageUrl });
         return res.status(201).json({ success: true, data: product, product, imageUrl, message: 'Product Created Successfully' });
     } catch (error) {
-        await imageStorage.discardUpload(req.file);
+        await discardUploads(req);
         const invalid = error.name === 'ValidationError' || error instanceof SyntaxError;
         const duplicate = error.code === 11000;
         return res.status(duplicate ? 409 : invalid ? 400 : 500).json({
@@ -54,7 +64,7 @@ const createProduct = async (req, res) => {
 };
 const updateProduct=async(req,res)=>{
     let saved = false;
-    const discardUpload = () => imageStorage.discardUpload(req.file);
+    const discardUpload = () => discardUploads(req);
     try {
         const { id } = req.params;
         if (!/^[a-fA-F0-9]{24}$/.test(id)) {
@@ -76,6 +86,8 @@ const updateProduct=async(req,res)=>{
         }
         const oldImage = product.image;
         if (req.file) product.image = await imageStorage.storeUpload(req);
+        const gallery = await storeGallery(req);
+        if (gallery.length) product.images = [...(product.images || []), ...gallery];
         await product.save();
         saved = true;
 
@@ -102,7 +114,7 @@ const deleteProduct=async(req,res)=>{
         if (!product) {
             return res.status(404).json({ success: false, message: 'Product not found' });
         }
-        const imageCleanupFailed = !(await imageStorage.cleanupImage(product.image));
+        const imageCleanupFailed = (await Promise.all([product.image, ...(product.images || [])].map(image => imageStorage.cleanupImage(image)))).some(result => !result);
         return res.status(200).json({ success: true, message: 'Product Deleted Successfully', ...(imageCleanupFailed ? { imageCleanupFailed: true } : {}) });
     } catch (error) {
         return res.status(500).json({ success: false, message: 'Failed to delete product' });

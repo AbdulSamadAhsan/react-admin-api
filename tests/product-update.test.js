@@ -45,6 +45,22 @@ test('product update and upload lifecycle', async (t) => {
         return fetch(`${base}/api/products/${id}`, { method: 'PUT', body: form });
     };
     try {
+        await t.test('optional gallery uploads append images and preserve existing gallery', async () => {
+            await makeProduct();
+            current.images = ['https://example.com/existing.png'];
+            const form = new FormData();
+            form.append('galleryImages', new Blob([png], { type: 'image/png' }), 'one.png');
+            form.append('galleryImages', new Blob([png], { type: 'image/png' }), 'two.png');
+            const response = await fetch(`${base}/api/products/507f1f77bcf86cd799439011`, { method: 'PUT', body: form });
+            assert.equal(response.status, 200);
+            assert.equal(current.images.length, 3);
+            assert.equal(current.images[0], 'https://example.com/existing.png');
+            for (const image of current.images.slice(1)) {
+                const file = path.join(uploadPath, new URL(image).pathname.split('/').pop());
+                files.add(file);
+                assert.deepEqual(await fs.readFile(file), png);
+            }
+        });
         await t.test('replaces image and removes previous file after saving', async () => {
             const oldPath = await makeProduct();
             const response = await update({ name: 'Updated', price: '25', colors: '["red"]' }, true);
