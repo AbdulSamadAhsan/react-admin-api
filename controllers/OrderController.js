@@ -1,5 +1,6 @@
 const { Order } = require('../models/OrderModel');
-const { normalizeOrder, cancelOrder } = require('../services/OrderService');
+const { normalizeOrder } = require('../services/OrderService');
+const { changeStatus } = require('../services/orderStatusService');
 
 const getOrder = async (req, res) => {
     const page = req.query.page === undefined ? 1 : Number(req.query.page);
@@ -28,9 +29,7 @@ const updateOrder = async (req, res) => {
     }
     if (data.status === 'completed') data.status = 'delivered';
     try {
-        const order = data.status === 'cancelled'
-            ? await cancelOrder(id)
-            : await Order.findOneAndUpdate({ _id: id, status: { $nin: ['delivered', 'completed', 'cancelled'] } }, { $set: data }, { new: true, runValidators: true }).lean();
+        const order = await changeStatus(id, data.status);
         if (!order) {
             const existing = await Order.findById(id).lean();
             if (['delivered', 'completed', 'cancelled'].includes(existing?.status)) return res.status(409).json({ success: false, message: 'Delivered, completed, and cancelled orders cannot change status.' });

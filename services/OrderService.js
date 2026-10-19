@@ -44,7 +44,7 @@ module.exports = { normalizeOrder };
 
 
 // Use one transaction so status and inventory either both commit or neither does.
-async function cancelOrder(id) {
+async function cancelOrder(id, onChanged) {
     const mongoose = require('mongoose');
     const { Order } = require('../models/OrderModel');
     const { Product } = require('../models/ProductModel');
@@ -75,6 +75,7 @@ async function cancelOrder(id) {
                     { _id: productId }, { $inc: { stock: item.quantity } }, { session }
                 );
             }
+            if (onChanged) await onChanged(order, session);
         });
         return order;
     } finally {

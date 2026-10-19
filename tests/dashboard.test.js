@@ -6,6 +6,8 @@ const assert = require('node:assert/strict');
 const express = require('express');
 const { Order } = require('../models/OrderModel');
 const { StoreSettings } = require('../models/StoreSettingsModel');
+const mongoose = require('mongoose');
+const statusEmails = require('../services/orderStatusEmail');
 
 test('dashboard contracts constrain order writes', async t => {
     const app = express();
@@ -17,11 +19,14 @@ test('dashboard contracts constrain order writes', async t => {
     const order = { _id: id, orderNumber: 'ORD-1047', customer: { name: 'Buyer', email: 'buyer@example.com' }, items: [{ name: 'Bag', quantity: 2, price: 89 }], total: 178, currency: 'USD', status: 'processing', createdAt: new Date('2026-10-14') };
     const originals = { find: Order.find, count: Order.countDocuments, update: Order.findOneAndUpdate, byId: Order.findById, settingsFind: StoreSettings.findOne, settingsUpdate: StoreSettings.findOneAndUpdate };
     let latestUpdate;
+    const previousStart = mongoose.startSession, previousEnqueue = statusEmails.enqueue;
+    mongoose.startSession = async () => ({ async withTransaction(callback) { await callback(); }, async endSession() {} });
+    statusEmails.enqueue = async () => null;
     Order.find = () => ({ sort() { return this; }, skip() { return this; }, limit() { this.paginated = true; return this; }, lean: async function () { return this.paginated ? [order] : [order, { ...order, status: 'cancelled', createdAt: new Date('2026-09-01') }]; } });
     Order.countDocuments = async () => 1;
-    Order.findById = () => ({ lean: async () => order });
+    Order.findById = () => ({ session() { return this; }, lean: async () => order });
     Order.findOneAndUpdate = (received, update, options) => ({ lean: async () => {
-        assert.deepEqual(received, { _id: id, status: { $nin: ['delivered', 'completed', 'cancelled'] } });
+        assert.deepEqual(received, { _id: id, status: { $nin: ['delivered', 'completed', 'cancelled', update.$set.status] } });
         assert.equal(options.runValidators, true);
         if (['delivered', 'completed', 'cancelled'].includes(order.status)) return null;
         latestUpdate = update;
@@ -81,6 +86,7 @@ test('dashboard contracts constrain order writes', async t => {
             for (const data of [{}, { storeName: ' ', contactEmail: 'invalid', currency: 'USD' }, { storeName: 'Store', contactEmail: 'valid@example.com', currency: 'EUR' }]) assert.equal((await request('/api/settings', data)).status, 400);
         });
     } finally {
+        mongoose.startSession = previousStart; statusEmails.enqueue = previousEnqueue;
         Object.assign(Order, { find: originals.find, countDocuments: originals.count, findOneAndUpdate: originals.update, findById: originals.byId });
         Object.assign(StoreSettings, { findOne: originals.settingsFind, findOneAndUpdate: originals.settingsUpdate });
         server.closeAllConnections();
