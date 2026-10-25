@@ -2,6 +2,18 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { normalizeOrder } = require('../services/OrderService');
 
+test('admin preserves saved tax, discount and totals for both supplied pricing examples', () => {
+  for (const pricing of [
+    { subtotal: 290, discount: 0, gst: 46.4, gstRate: 0.16, deliveryFee: 15, total: 351.4 },
+    { subtotal: 290, discount: 58, gst: 37.12, gstRate: 0.16, deliveryFee: 15, total: 284.12 }
+  ]) {
+    const result = normalizeOrder({ _id: 'order', ...pricing });
+    for (const [key, value] of Object.entries(pricing)) assert.equal(result[key], value);
+    assert.equal(Math.round((result.subtotal - result.discount + result.gst + result.deliveryFee) * 100), Math.round(result.total * 100));
+  }
+  assert.equal(normalizeOrder({ _id: 'legacy', total: 10 }).gst, undefined);
+});
+
 test('historical completed orders report paid while preserving refunds and other order payments', () => {
   for (const status of ['delivered', 'completed']) {
     for (const paymentStatus of ['unpaid', 'pending', undefined, null, '', 'paid']) {

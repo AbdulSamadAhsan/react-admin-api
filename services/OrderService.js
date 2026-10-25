@@ -30,6 +30,8 @@ function normalizeOrder(document) {
         })),
         subtotal: order.subtotal,
         discount: order.discount || 0,
+        gst: order.gst,
+        gstRate: order.gstRate,
         deliveryFee: order.deliveryFee || 0,
         total: order.total,
         currency: order.currency || 'USD',
