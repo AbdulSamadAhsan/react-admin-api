@@ -2,6 +2,15 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { normalizeOrder } = require('../services/OrderService');
 
+test('legacy GST comes from saved totals without assuming a current tax rate', () => {
+  const pricing = { subtotal: 290, discount: 58, deliveryFee: 15, total: 284.12 };
+  assert.equal(normalizeOrder(pricing).gst, 37.12);
+  assert.equal(normalizeOrder({ ...pricing, gst: 0 }).gst, 0);
+  assert.equal(normalizeOrder({ ...pricing, total: 247 }).gst, 0);
+  assert.equal(normalizeOrder({ ...pricing, total: 200 }).gst, undefined);
+  assert.equal(normalizeOrder({ total: 284.12 }).gst, undefined);
+});
+
 test('admin preserves saved tax, discount and totals for both supplied pricing examples', () => {
   for (const pricing of [
     { subtotal: 290, discount: 0, gst: 46.4, gstRate: 0.16, deliveryFee: 15, total: 351.4 },

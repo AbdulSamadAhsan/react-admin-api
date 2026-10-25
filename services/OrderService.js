@@ -4,6 +4,11 @@ function normalizeOrder(document) {
     const order = document.toObject ? document.toObject() : document;
     const shipping = order.shipping || {};
     const customer = order.customer || {};
+    let gst = order.gst;
+    if (gst == null && [order.subtotal, order.total, order.discount ?? 0, order.deliveryFee ?? 0].every(Number.isFinite)) {
+        const remainder = Math.round((order.total - order.subtotal + (order.discount ?? 0) - (order.deliveryFee ?? 0)) * 100);
+        if (remainder >= 0) gst = remainder / 100;
+    }
     return {
         _id: order._id,
         orderNumber: order.orderNumber || String(order._id),
@@ -30,7 +35,7 @@ function normalizeOrder(document) {
         })),
         subtotal: order.subtotal,
         discount: order.discount || 0,
-        gst: order.gst,
+        gst,
         gstRate: order.gstRate,
         deliveryFee: order.deliveryFee || 0,
         total: order.total,
