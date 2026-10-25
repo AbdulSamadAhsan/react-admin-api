@@ -41,10 +41,7 @@ function normalizeOrder(document) {
         total: order.total,
         currency: order.currency || 'USD',
         status: order.status,
-        // Historical completed orders predate the atomic payment update.
-        paymentStatus: ['delivered', 'completed'].includes(order.status) &&
-            [undefined, null, '', 'pending', 'unpaid'].includes(order.paymentStatus)
-            ? 'paid' : order.paymentStatus,
+        paymentStatus: order.paymentStatus,
         paymentMethod: order.paymentMethod,
         createdAt: order.createdAt,
         updatedAt: order.updatedAt

@@ -1,3 +1,4 @@
+const { reconcileCompletedPayment } = require('./orderPaymentPolicy');
 const mongoose = require('mongoose');
 const { Order } = require('../models/OrderModel');
 const { cancelOrder } = require('./OrderService');
@@ -12,12 +13,15 @@ async function changeStatus(id, status) {
     try {
       await session.withTransaction(async () => {
         jobId = null;
-        const fields = status === 'delivered' ? { status, paymentStatus: 'paid' } : { status };
+        const fields = { status };
         order = await Order.findOneAndUpdate({ _id: id, status: { $nin: ['delivered', 'completed', 'cancelled', status] } }, { $set: fields }, { new: true, runValidators: true, session }).lean();
-        if (order) jobId = await emails.enqueue(order, session);
+        if (order) {
+          order = await reconcileCompletedPayment(order, {}, session);
+          jobId = await emails.enqueue(order, session);
+        }
         else {
           const existing = await Order.findById(id).session(session).lean();
-          if (existing?.status === status) order = existing;
+          if (existing?.status === status || (status === 'delivered' && existing?.status === 'completed')) order = await reconcileCompletedPayment(existing, {}, session);
         }
       });
     } finally { await session.endSession(); }

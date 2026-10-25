@@ -24,6 +24,8 @@ const orderSchema = new mongoose.Schema({
     total: { type: Number, required: true, min: 0 },
     currency: { type: String, required: true, uppercase: true, match: /^[A-Z]{3}$/ },
     status: { type: String, enum: ['awaiting_payment', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'], default: 'pending' },
+    user: { type: mongoose.Schema.Types.ObjectId },
+    paymentMethod: { type: String },
     paymentStatus: { type: String, enum: ['pending', 'paid', 'failed', 'refunded'], default: 'pending' },
     trackingNumber: { type: String, trim: true, maxlength: 200, default: '' },
     adminNotes: { type: String, trim: true, maxlength: 2000, default: '' }

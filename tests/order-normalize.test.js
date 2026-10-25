@@ -23,10 +23,10 @@ test('admin preserves saved tax, discount and totals for both supplied pricing e
   assert.equal(normalizeOrder({ _id: 'legacy', total: 10 }).gst, undefined);
 });
 
-test('historical completed orders report paid while preserving refunds and other order payments', () => {
+test('normalization reports stored payment status without inferring a payment', () => {
   for (const status of ['delivered', 'completed']) {
     for (const paymentStatus of ['unpaid', 'pending', undefined, null, '', 'paid']) {
-      assert.equal(normalizeOrder({ _id: 'old', status, paymentStatus }).paymentStatus, 'paid');
+      assert.equal(normalizeOrder({ _id: 'old', status, paymentStatus }).paymentStatus, paymentStatus);
     }
     for (const paymentStatus of ['refunded', 'failed']) {
       assert.equal(normalizeOrder({ _id: 'old', status, paymentStatus }).paymentStatus, paymentStatus);

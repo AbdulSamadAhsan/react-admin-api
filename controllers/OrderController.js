@@ -1,3 +1,4 @@
+const { reconcileCompletedPayment } = require('../services/orderPaymentPolicy');
 const { Order } = require('../models/OrderModel');
 const { normalizeOrder } = require('../services/OrderService');
 const { changeStatus } = require('../services/orderStatusService');
@@ -13,7 +14,7 @@ const getOrder = async (req, res) => {
             Order.find().sort({ createdAt: -1, _id: -1 }).skip((page - 1) * limit).limit(limit).lean(),
             Order.countDocuments()
         ]);
-        return res.status(200).json({ success: true, message: 'Orders fetched successfully', orders: orders.map(normalizeOrder), pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+        return res.status(200).json({ success: true, message: 'Orders fetched successfully', orders: (await Promise.all(orders.map(order => reconcileCompletedPayment(order)))).filter(Boolean).map(normalizeOrder), pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
     } catch {
         return res.status(500).json({ success: false, message: 'Failed to fetch orders' });
     }
@@ -47,7 +48,7 @@ const getOrderById = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id).lean();
         if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
-        return res.json({ success: true, order: normalizeOrder(order) });
+        return res.json({ success: true, order: normalizeOrder(await reconcileCompletedPayment(order)) });
     } catch {
         return res.status(500).json({ success: false, message: 'Failed to fetch order' });
     }
