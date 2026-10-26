@@ -83,6 +83,13 @@ test('dashboard contracts constrain order writes', async t => {
             assert.equal((await (await request('/api/settings')).json()).settings.storeName, 'Studio Store');
             assert.equal((await request('/api/settings', { storeName: ' Saved store ', contactEmail: 'owner@example.com', currency: 'USD' })).status, 200);
             assert.equal((await (await request('/api/settings')).json()).settings.storeName, 'Saved store');
+            const converted = await request('/api/settings', { storeName: 'Saved store', contactEmail: 'owner@example.com', currency: 'PKR', exchangeRate: 280 });
+            assert.equal(converted.status, 200);
+            assert.equal((await converted.json()).settings.exchangeRate, 280);
+            assert.equal((await (await request('/api/settings')).json()).settings.currency, 'PKR');
+            for (const patch of [{ exchangeRate: 0 }, { exchangeRate: -2 }, { exchangeRate: '280' }, { exchangeRate: 1000001 }, { currency: 'FAKE', exchangeRate: 1 }, { currency: 'USD', exchangeRate: 2 }]) {
+                assert.equal((await request('/api/settings', { storeName: 'Saved store', contactEmail: 'owner@example.com', currency: 'PKR', exchangeRate: 280, ...patch })).status, 400);
+            }
             for (const data of [{}, { storeName: ' ', contactEmail: 'invalid', currency: 'USD' }, { storeName: 'Store', contactEmail: 'valid@example.com', currency: 'EUR' }]) assert.equal((await request('/api/settings', data)).status, 400);
         });
     } finally {
