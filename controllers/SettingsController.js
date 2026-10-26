@@ -16,7 +16,10 @@ const updateSettings = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Provide store details, a supported currency, and a positive exchange rate (1 USD equals this amount). USD must use rate 1.' });
     }
     try {
-        const settings = await StoreSettings.findOneAndUpdate({ key: 'store' }, { $set: { storeName: data.storeName.trim(), contactEmail: data.contactEmail.trim(), currency: data.currency, exchangeRate: rate } }, { upsert: true, new: true, runValidators: true });
+        const previous = await StoreSettings.findOne({ key: 'store' });
+        const rememberedRate = data.currency === 'PKR' ? rate : previous?.currency === 'PKR' ? previous.exchangeRate : previous?.pkrExchangeRate;
+        const settings = await StoreSettings.findOneAndUpdate({ key: 'store' }, { $set: { storeName: data.storeName.trim(), contactEmail: data.contactEmail.trim(), currency: data.currency, exchangeRate: rate,
+            ...(rememberedRate !== undefined && { pkrExchangeRate: rememberedRate }) } }, { upsert: true, new: true, runValidators: true });
         return res.json({ success: true, settings });
     } catch (error) {
         return res.status(error.name === 'ValidationError' ? 400 : 500).json({ success: false, message: 'Failed to save settings' });

@@ -4,6 +4,7 @@ const schema = new mongoose.Schema({
     storeName: { type: String, required: true, trim: true, maxlength: 35 },
     contactEmail: { type: String, required: true, trim: true, lowercase: true, match: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
     currency: { type: String, enum: ['USD', 'PKR'], default: 'USD' },
-    exchangeRate: { type: Number, min: 0.000001, max: 1000000, default: 1 }
+    exchangeRate: { type: Number, min: 0.000001, max: 1000000, default: 1 },
+    pkrExchangeRate: { type: Number, min: 0.000001, max: 1000000 }
 }, { timestamps: true, versionKey: false });
 module.exports = { StoreSettings: mongoose.model('StoreSettings', schema) };
