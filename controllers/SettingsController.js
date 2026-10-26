@@ -1,6 +1,6 @@
 const { StoreSettings } = require('../models/StoreSettingsModel');
 const defaults = { storeName: 'Studio Store', contactEmail: 'hello@studiostore.example', currency: 'USD', exchangeRate: 1 };
-const currencies = ['USD', 'PKR', 'EUR', 'GBP', 'AED', 'SAR', 'INR', 'CAD', 'AUD'];
+const currencies = ['USD', 'PKR'];
 const getSettings = async (req, res) => {
     try {
         const settings = await StoreSettings.findOne({ key: 'store' });
