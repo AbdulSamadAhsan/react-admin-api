@@ -5,7 +5,7 @@ const service = require('../services/AdminService');
 
 const emailValue = value => typeof value === 'string' ? value.trim().toLowerCase() : '';
 const validEmail = email => email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-const validPassword = password => typeof password === 'string' && password.length >= 15 && Buffer.byteLength(password, 'utf8') <= 72;
+const validPassword = password => typeof password === 'string' && password.length >= 6 && Buffer.byteLength(password, 'utf8') <= 72;
 // A dummy hash keeps unknown-account login checks on the same password-hashing path.
 const dummyHash = bcrypt.hashSync('dummy-password-not-for-login', 12);
 
@@ -17,7 +17,7 @@ async function registerAdmin(req, res) {
     const { name, email: rawEmail, password } = req.body || {};
     const email = emailValue(rawEmail);
     if (typeof name !== 'string' || !name.trim() || name.trim().length > 100 || !validEmail(email) || !validPassword(password)) {
-        return res.status(400).json({ success: false, message: 'Provide name (1–100 characters), valid email, and password (at least 15 characters, at most 72 UTF-8 bytes)' });
+        return res.status(400).json({ success: false, message: 'Provide name (1–100 characters), valid email, and password (at least 6 characters, at most 72 UTF-8 bytes)' });
     }
     try {
         service.jwtSecret();
@@ -72,7 +72,7 @@ async function updateAdmin(req, res) {
     }
     const email = body.email === undefined ? undefined : emailValue(body.email);
     if ((email !== undefined && !validEmail(email)) || (body.newPassword !== undefined && !validPassword(body.newPassword))) {
-        return res.status(400).json({ success: false, message: 'Use a valid email and a new password of at least 15 characters (maximum 72 UTF-8 bytes)' });
+        return res.status(400).json({ success: false, message: 'Use a valid email and a new password of at least 6 characters (maximum 72 UTF-8 bytes)' });
     }
     try {
         if (!(await service.consumeAttempt('account-update', String(req.admin._id), 10))) {

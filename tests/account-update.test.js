@@ -50,7 +50,7 @@ test('admin can change own credentials with current password and revoke old sess
     });
     await t.test('password-only update hashes password, revokes tokens, and supports new login', async () => {
       token = service.issueToken(account);
-      const nextPassword = 'A different test passphrase 456';
+      const nextPassword = '123456';
       assert.equal((await update({ currentPassword: originalPassword, newPassword: originalPassword })).status, 400);
       assert.equal((await update({ currentPassword: originalPassword, newPassword: nextPassword })).status, 200);
       assert.notEqual(account.password, nextPassword);
