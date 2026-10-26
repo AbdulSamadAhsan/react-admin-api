@@ -45,6 +45,17 @@ test('product update and upload lifecycle', async (t) => {
         return fetch(`${base}/api/products/${id}`, { method: 'PUT', body: form });
     };
     try {
+        await t.test('size prices save through multipart updates, survive other edits and remove deselected sizes', async () => {
+            await makeProduct();
+            const response = await update({ sizes: '["Small","Large"]', sizePrices: '[{"size":"Small","price":10},{"size":"Large","price":15}]' });
+            assert.equal(response.status, 200);
+            assert.deepEqual((await response.json()).product.sizePrices, [{ size: 'Small', price: 10 }, { size: 'Large', price: 15 }]);
+            assert.equal((await update({ name: 'Size-priced product' })).status, 200);
+            assert.equal(current.sizePrices.length, 2);
+            assert.equal((await update({ sizes: '["Large"]' })).status, 200);
+            assert.deepEqual(current.sizePrices.toObject(), [{ size: 'Large', price: 15 }]);
+            assert.equal((await update({ sizePrices: '[{"size":"Large","price":-2}]' })).status, 400);
+        });
         await t.test('optional gallery uploads append images and preserve existing gallery', async () => {
             await makeProduct();
             current.images = ['https://example.com/existing.png'];

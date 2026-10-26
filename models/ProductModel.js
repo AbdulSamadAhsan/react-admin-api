@@ -78,6 +78,10 @@ const productSchema = new mongoose.Schema(
       type: [String],
       default: []
     },
+    sizePrices: {
+      type: [new mongoose.Schema({ size: { type: String, required: true }, price: { type: Number, required: true, min: 0 } }, { _id: false })],
+      default: []
+    },
 
     stock: {
       type: Number,

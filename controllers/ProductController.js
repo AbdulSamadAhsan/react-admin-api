@@ -1,6 +1,7 @@
 const {Product} = require("../models/ProductModel")
 const crypto = require('crypto');
 const imageStorage = require('../services/ProductImageStorage');
+const { parseSizePrices } = require('../services/sizePrices');
 const uploadedFiles = req => [req.file, ...(req.files?.galleryImages || [])].filter(Boolean);
 const discardUploads = req => Promise.all(uploadedFiles(req).map(file => imageStorage.discardUpload(file)));
 const storeGallery = async req => {
@@ -48,6 +49,7 @@ const createProduct = async (req, res) => {
         for (const key of ['images', 'colors', 'sizes']) {
             if (data[key] !== undefined) values[key] = typeof data[key] === 'string' && data[key].trim().startsWith('[') ? JSON.parse(data[key]) : data[key];
         }
+        if (data.sizePrices !== undefined) values.sizePrices = parseSizePrices(data.sizePrices, values.sizes || []);
         const gallery = await storeGallery(req);
         if (gallery.length) values.images = [...(values.images || []), ...gallery];
         const product = await Product.create({ ...values, name, slug, image: imageUrl });
@@ -84,6 +86,8 @@ const updateProduct=async(req,res)=>{
         for (const key of ['images', 'colors', 'sizes']) {
             if (data[key] !== undefined) product[key] = typeof data[key] === 'string' && data[key].trim().startsWith('[') ? JSON.parse(data[key]) : data[key];
         }
+        if (data.sizePrices !== undefined) product.sizePrices = parseSizePrices(data.sizePrices, product.sizes || []);
+        else if (data.sizes !== undefined) product.sizePrices = (product.sizePrices || []).filter(row => product.sizes.includes(row.size));
         const oldImage = product.image;
         if (req.file) product.image = await imageStorage.storeUpload(req);
         const gallery = await storeGallery(req);
